@@ -11,7 +11,6 @@
 #include "db/skiplist.h"
 #include "util/arena.h"
 #include <pthread.h>
-#include "Hash_opt.h"
 
 namespace leveldb {
 

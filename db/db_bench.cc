@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 #include "db/db_impl.h"
 #include "db/version_set.h"
 #include "leveldb/cache.h"
@@ -18,6 +19,8 @@
 #include "util/random.h"
 #include "util/testutil.h"
 
+using std::cout;
+using std::endl;
 // Comma-separated list of operations to run in the specified order
 //   Actual benchmarks:
 //      fillseq       -- write N values in sequential key order in async mode
@@ -403,8 +406,9 @@ class Benchmark {
 
   void Run() {
     PrintHeader();
+    cout<<"name.ToString()"<<endl;
     Open();
-
+cout<<"name1.ToString()"<<endl;
     const char* benchmarks = FLAGS_benchmarks;
     while (benchmarks != NULL) {
       const char* sep = strchr(benchmarks, ',');
@@ -416,7 +420,7 @@ class Benchmark {
         name = Slice(benchmarks, sep - benchmarks);
         benchmarks = sep + 1;
       }
-
+    cout<<name.ToString()<<endl;
       // Reset parameters that may be overriddden bwlow
       num_ = FLAGS_num;
       reads_ = (FLAGS_reads < 0 ? FLAGS_num : FLAGS_reads);
@@ -427,7 +431,7 @@ class Benchmark {
       void (Benchmark::*method)(ThreadState*) = NULL;
       bool fresh_db = false;
       int num_threads = FLAGS_threads;
-
+      cout<<name.ToString()<<endl;
       if (name == Slice("fillseq")) {
         fresh_db = true;
         method = &Benchmark::WriteSeq;
@@ -542,6 +546,8 @@ class Benchmark {
 
   void RunBenchmark(int n, Slice name,
                     void (Benchmark::*method)(ThreadState*)) {
+
+    std::cout<<name.ToString()<<std::endl;
     SharedState shared;
     shared.total = n;
     shared.num_initialized = 0;

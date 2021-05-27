@@ -9,7 +9,6 @@
 #include "leveldb/iterator.h"
 #include "util/coding.h"
 #include <iostream>
-#define HASH_OPTIMIZATION 1
 
 namespace leveldb {
 
@@ -30,14 +29,7 @@ MemTable::MemTable(const InternalKeyComparator& cmp)
     : comparator_(cmp),
       refs_(0),
       table_(comparator_, &arena_) {
-  for(int i=0;i<blk_size;++i){
-    pthread_rwlock_init(rwl[i],NULL);
-  }
-  ht_._ht = (std::pair<Slice * , Slice * > *)malloc(100000*sizeof(std::pair<Slice * , Slice * >));
-  for(int i=0;i<100000;++i)
-  {
-    ht_._ht[i] = {nullptr,nullptr};
-  }
+  
 }
 
 MemTable::~MemTable() {
@@ -94,13 +86,13 @@ class MemTableIterator: public Iterator {
 Iterator* MemTable::NewIterator() {
   return new MemTableIterator(&table_);
 }
-void MemTable::Add(SequenceNumber s, ValueType type,
-                   const Slice& key,
-                   const Slice& value) {
-                     Add_routine(s,type,key,value);
-}
+// void MemTable::Add(SequenceNumber s, ValueType type,
+//                    const Slice& key,
+//                    const Slice& value) {
+//                      Add_routine(s,type,key,value);
+// }
 
-void MemTable::Add_routine(SequenceNumber s, ValueType type,
+void MemTable::Add(SequenceNumber s, ValueType type,
                    const Slice& key,
                    const Slice& value) {
   // Format of an entry is concatenation of:
@@ -125,37 +117,7 @@ void MemTable::Add_routine(SequenceNumber s, ValueType type,
   assert((p + val_size) - buf == encoded_len);
   table_.Insert(buf);
 }
-bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
-  if(HASH_OPTIMIZATION)
-  {
-    Slice memkey = key.memtable_key();
-    unsigned hv = Hash_opt::hash_Value_Calc(memkey);
-    pthread_rwlock_rdlock(rwl[hv/10000]);
-    if(ht_._ht[hv].first!=nullptr) {
-      auto entry = ht_._ht[hv];
-      if(Hash_opt::sliceCmp(*entry.first,memkey))
-      {
-        pthread_rwlock_unlock(rwl[hv/10000]);
-        value->assign(entry.second->data(), entry.second->size());
-        return true;
-      }
-    }
-    else {
-      auto ret = Get_routine(key,value,s);
-      if(ret){
-        pthread_rwlock_unlock(rwl[hv/10000]);
-        pthread_rwlock_wrlock(rwl[hv/10000]);
-        if(ht_._ht[hv].first==nullptr)
-        {
-          ht_._ht[hv] = 
-        }
-      }
-    }
-
-
-  }
-}
-bool MemTable::Get_routine(const LookupKey& key, std::string* value, Status* s){
+bool MemTable::Get(const LookupKey& key, std::string* value, Status* s){
   Slice memkey = key.memtable_key();
   Table::Iterator iter(&table_);
   iter.Seek(memkey.data());

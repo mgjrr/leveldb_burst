@@ -5,6 +5,7 @@
 #include "db/db_impl.h"
 
 #include <algorithm>
+#include <iostream>
 #include <set>
 #include <string>
 #include <stdint.h>
@@ -32,6 +33,9 @@
 #include "util/coding.h"
 #include "util/logging.h"
 #include "util/mutexlock.h"
+
+using std::cout;
+using std::endl;
 
 namespace leveldb {
 
@@ -136,6 +140,18 @@ DBImpl::DBImpl(const Options& options, const std::string& dbname)
 
   versions_ = new VersionSet(dbname_, &options_, table_cache_,
                              &internal_comparator_);
+
+  for(int i=0;i<10;++i){
+    pthread_rwlock_init(rwl[i],NULL);
+  }
+
+  ht_._ht = (std::pair<Slice * , std::string * > *)malloc(100000*sizeof(std::pair<Slice * , std::string * >));
+  for(int i=0;i<100000;++i)
+  {
+    ht_._ht[i].first = NULL;
+    ht_._ht[i].second = NULL;
+  }
+  
 }
 
 DBImpl::~DBImpl() {
@@ -1030,7 +1046,32 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
 Status DBImpl::Get(const ReadOptions& options,
                    const Slice& key,
                    std::string* value) {
-  
+  cout<<"p3 "<<endl;
+  Status s;                   
+  unsigned hv = Hash_opt::hash_Value_Calc(key);
+  pthread_rwlock_rdlock(rwl[hv/10000]);
+  if(ht_._ht[hv].first!=NULL) {
+      std::pair<Slice * , std::string * > entry = ht_._ht[hv];
+      if(Hash_opt::sliceCmp(*entry.first,key))
+      {
+        pthread_rwlock_unlock(rwl[hv/10000]);
+        value->assign(entry.second->data(), entry.second->size());
+        return s;
+      }
+    }
+    else{
+      Status ts = Get_routine(options,key,value);
+      if(ts.ok()){
+        pthread_rwlock_unlock(rwl[hv/10000]);
+        pthread_rwlock_wrlock(rwl[hv/10000]);
+        if(ht_._ht[hv].first==NULL)
+        {
+          ht_._ht[hv].second = value;
+        }
+        pthread_rwlock_unlock(rwl[hv/10000]);
+      }
+    }
+    cout<<"p4 "<<endl;
 }
 Status DBImpl::Get_routine(const ReadOptions& options,
                    const Slice& key,
@@ -1101,7 +1142,18 @@ void DBImpl::ReleaseSnapshot(const Snapshot* s) {
 
 // Convenience methods
 Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
-  return DB::Put(o, key, val);
+  cout<<"p1 "<<endl;
+  unsigned hv = Hash_opt::hash_Value_Calc(key);
+  pthread_rwlock_wrlock(rwl[hv/10000]);
+  std::pair<Slice * , std::string * > & entry = ht_._ht[hv];
+  if(entry.first&&(Hash_opt::sliceCmp(*entry.first,key)))
+  {
+    entry.first = NULL;
+  }
+  Status ret = DB::Put(o, key, val);
+  pthread_rwlock_unlock(rwl[hv/10000]);
+  cout<<"p2"<<endl;
+  return ret;
 }
 
 Status DBImpl::Delete(const WriteOptions& options, const Slice& key) {

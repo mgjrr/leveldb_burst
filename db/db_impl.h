@@ -10,9 +10,11 @@
 #include "db/dbformat.h"
 #include "db/log_writer.h"
 #include "db/snapshot.h"
+#include "db/Hash_opt.h"
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "port/port.h"
+#include <pthread.h>
 
 namespace leveldb {
 
@@ -132,7 +134,7 @@ class DBImpl : public DB {
 
   pthread_rwlock_t * rwl[10];
   Hash_opt::Hash_table ht_;
-  
+
   // Queue of writers.
   std::deque<Writer*> writers_;
   WriteBatch* tmp_batch_;
