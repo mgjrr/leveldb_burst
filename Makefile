@@ -22,7 +22,7 @@ $(shell sh ./build_detect_platform)
 include build_config.mk
 
 CFLAGS += -I. -I./include $(PLATFORM_CCFLAGS) $(OPT)
-CXXFLAGS += -I. -I./include $(PLATFORM_CXXFLAGS) $(OPT)
+CXXFLAGS += -I. -I./include $(PLATFORM_CXXFLAGS) $(OPT) -std=c++11
 
 LDFLAGS += $(PLATFORM_LDFLAGS)
 

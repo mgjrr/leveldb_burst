@@ -1,6 +1,7 @@
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
+// #define PLOG
 
 #include "db/db_impl.h"
 
@@ -141,17 +142,19 @@ DBImpl::DBImpl(const Options& options, const std::string& dbname)
   versions_ = new VersionSet(dbname_, &options_, table_cache_,
                              &internal_comparator_);
 
+  // cout<<"x1"<<endl;
   for(int i=0;i<10;++i){
+    rwl[i] = (pthread_rwlock_t*)malloc(sizeof(pthread_rwlock_t));
     pthread_rwlock_init(rwl[i],NULL);
   }
-
+  // cout<<"x2"<<endl;
   ht_._ht = (std::pair<Slice * , std::string * > *)malloc(100000*sizeof(std::pair<Slice * , std::string * >));
   for(int i=0;i<100000;++i)
   {
     ht_._ht[i].first = NULL;
     ht_._ht[i].second = NULL;
   }
-  
+  // cout<<"x3"<<endl;
 }
 
 DBImpl::~DBImpl() {
@@ -1042,40 +1045,50 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
   MutexLock l(&mutex_);
   return versions_->MaxNextLevelOverlappingBytes();
 }
-
 Status DBImpl::Get(const ReadOptions& options,
                    const Slice& key,
                    std::string* value) {
-  cout<<"p3 "<<endl;
+#ifdef PLOG
+  cout<<"Get"<<key.ToString()<<endl;
+#endif
   Status s;                   
   unsigned hv = Hash_opt::hash_Value_Calc(key);
   pthread_rwlock_rdlock(rwl[hv/10000]);
-  if(ht_._ht[hv].first!=NULL) {
-      std::pair<Slice * , std::string * > entry = ht_._ht[hv];
-      if(Hash_opt::sliceCmp(*entry.first,key))
-      {
+  std::pair<Slice * , std::string * > & entry = ht_._ht[hv];
+  if(entry.first&&Hash_opt::sliceCmp(*entry.first,key)) {
+        if(entry.second){
+          ht_count++;
+          value->assign(entry.second->data(), entry.second->size());
+        }
+        else
+          s = Status::NotFound(Slice("My get"));
         pthread_rwlock_unlock(rwl[hv/10000]);
-        value->assign(entry.second->data(), entry.second->size());
         return s;
-      }
     }
     else{
+      rt_count++;
       Status ts = Get_routine(options,key,value);
       if(ts.ok()){
         pthread_rwlock_unlock(rwl[hv/10000]);
         pthread_rwlock_wrlock(rwl[hv/10000]);
-        if(ht_._ht[hv].first==NULL)
+        if(entry.first==NULL)
         {
-          ht_._ht[hv].second = value;
+          entry.first = new Slice(key);
+          entry.second = value;
         }
         pthread_rwlock_unlock(rwl[hv/10000]);
       }
+      return ts;
     }
-    cout<<"p4 "<<endl;
+    // cout<<"p4 "<<endl;
 }
 Status DBImpl::Get_routine(const ReadOptions& options,
                    const Slice& key,
                    std::string* value) {
+
+#ifdef PLOG
+  cout<<"Get routine"<<key.ToString()<<endl;
+#endif
   Status s;
   MutexLock l(&mutex_);
   SequenceNumber snapshot;
@@ -1142,7 +1155,9 @@ void DBImpl::ReleaseSnapshot(const Snapshot* s) {
 
 // Convenience methods
 Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
-  cout<<"p1 "<<endl;
+#ifdef PLOG
+  cout<<"Put"<<key.ToString()<<endl;
+#endif
   unsigned hv = Hash_opt::hash_Value_Calc(key);
   pthread_rwlock_wrlock(rwl[hv/10000]);
   std::pair<Slice * , std::string * > & entry = ht_._ht[hv];
@@ -1152,7 +1167,7 @@ Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
   }
   Status ret = DB::Put(o, key, val);
   pthread_rwlock_unlock(rwl[hv/10000]);
-  cout<<"p2"<<endl;
+  // cout<<"p2"<<endl;
   return ret;
 }
 
@@ -1417,6 +1432,9 @@ void DBImpl::GetApproximateSizes(
 // Default implementations of convenience methods that subclasses of DB
 // can call if they wish
 Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
+#ifdef PLOG
+  cout<<"Put routine"<<key.ToString()<<endl;
+#endif
   WriteBatch batch;
   batch.Put(key, value);
   return Write(opt, &batch);

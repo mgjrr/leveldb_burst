@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <chrono>
 #include "db/db_impl.h"
 #include "db/version_set.h"
 #include "leveldb/cache.h"
@@ -406,9 +407,7 @@ class Benchmark {
 
   void Run() {
     PrintHeader();
-    cout<<"name.ToString()"<<endl;
     Open();
-cout<<"name1.ToString()"<<endl;
     const char* benchmarks = FLAGS_benchmarks;
     while (benchmarks != NULL) {
       const char* sep = strchr(benchmarks, ',');
@@ -420,7 +419,6 @@ cout<<"name1.ToString()"<<endl;
         name = Slice(benchmarks, sep - benchmarks);
         benchmarks = sep + 1;
       }
-    cout<<name.ToString()<<endl;
       // Reset parameters that may be overriddden bwlow
       num_ = FLAGS_num;
       reads_ = (FLAGS_reads < 0 ? FLAGS_num : FLAGS_reads);
@@ -431,7 +429,6 @@ cout<<"name1.ToString()"<<endl;
       void (Benchmark::*method)(ThreadState*) = NULL;
       bool fresh_db = false;
       int num_threads = FLAGS_threads;
-      cout<<name.ToString()<<endl;
       if (name == Slice("fillseq")) {
         fresh_db = true;
         method = &Benchmark::WriteSeq;
@@ -547,7 +544,6 @@ cout<<"name1.ToString()"<<endl;
   void RunBenchmark(int n, Slice name,
                     void (Benchmark::*method)(ThreadState*)) {
 
-    std::cout<<name.ToString()<<std::endl;
     SharedState shared;
     shared.total = n;
     shared.num_initialized = 0;
@@ -689,7 +685,6 @@ cout<<"name1.ToString()"<<endl;
   void WriteRandom(ThreadState* thread) {
     DoWrite(thread, false);
   }
-
   void DoWrite(ThreadState* thread, bool seq) {
     if (num_ != FLAGS_num) {
       char msg[100];
@@ -749,6 +744,26 @@ cout<<"name1.ToString()"<<endl;
   void ReadRandom(ThreadState* thread) {
     ReadOptions options;
     std::string value;
+
+    // int pool[1000] = {0};
+    // for (int i = 0; i < 1000; i++){
+    //   pool[i] = thread->rand.Next() % FLAGS_num;
+    // }
+    // auto start = std::chrono::system_clock::now();
+    // for (int i = 0; i < reads_; i++) {
+    //   char key[100];
+    //   const int k = pool[(thread->rand.Next() % 1000)];
+    //   snprintf(key, sizeof(key), "%016d", k);
+    //   db_->Get(options, key, &value);
+    //   thread->stats.FinishedSingleOp();
+    // }
+    // auto end   = std::chrono::system_clock::now();
+    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    // cout<<endl<<endl;
+    // cout<<double(duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den<<endl;
+    // cout<<endl<<endl;
+    // cout<<db_->ht_count<<" "<<db_->rt_count<<endl;
+
     for (int i = 0; i < reads_; i++) {
       char key[100];
       const int k = thread->rand.Next() % FLAGS_num;

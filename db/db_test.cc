@@ -13,6 +13,11 @@
 #include "util/mutexlock.h"
 #include "util/testharness.h"
 #include "util/testutil.h"
+#include <typeinfo>  
+#include <iostream>
+
+using std::cout;
+using std::endl;
 
 namespace leveldb {
 
@@ -319,6 +324,7 @@ TEST(DBTest, Empty) {
 }
 
 TEST(DBTest, ReadWrite) {
+
   ASSERT_OK(Put("foo", "v1"));
   ASSERT_EQ("v1", Get("foo"));
   ASSERT_OK(Put("bar", "v2"));
